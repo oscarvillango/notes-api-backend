@@ -1,9 +1,11 @@
 const express = require('express')
 const cors = require('cors')
+const logger = require('./loggerMiddleware')
 const app = express()
 
 app.use(cors())
 app.use(express.json())
+app.use(logger)
 
 /* const app = http.createServer((request, response) => {
     response.writeHead(200, {'Content-Type': 'text/plain'});
@@ -75,6 +77,12 @@ app.post('/api/notes', (req, resp) => {
   notes = [...notes, newNote]
 
   resp.status(201).send(newNote)
+})
+
+app.use((req, resp) => {
+  resp.status(404).send({
+    error: 'Not Found'
+  })
 })
 
 const PORT = 3001

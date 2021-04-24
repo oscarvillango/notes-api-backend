@@ -1,0 +1,11 @@
+{
+    "eslint.format.enable": true,
+    "eslint.alwaysShowStatus": true,
+    "eslint.lintTask.enable": true,
+    "eslint.codeAction.disableRuleComment": {
+    
+    },
+    "editor.codeActionsOnSave": {
+        "source.fixAll.eslint": true
+    },
+}

@@ -1,61 +1,69 @@
+require('dotenv').config()
+require('./mongo')
 const express = require('express')
 const cors = require('cors')
-const logger = require('./loggerMiddleware')
+const Sentry = require('@sentry/node')
+const Tracing = require('@sentry/tracing')
+const logger = require('./middlewares/loggerMiddleware')
+const handleErrors = require('./middlewares/handleErrors')
+const Note = require('./models/Notes')
+
 const app = express()
+
+Sentry.init({
+  dsn: 'https://28e38670c3814e97957699bf4942e31c@o578766.ingest.sentry.io/5735175',
+  integrations: [
+    // enable HTTP calls tracing
+    new Sentry.Integrations.Http({ tracing: true }),
+    // enable Express.js middleware tracing
+    new Tracing.Integrations.Express({ app })
+  ],
+
+  // Set tracesSampleRate to 1.0 to capture 100%
+  // of transactions for performance monitoring.
+  // We recommend adjusting this value in production
+  tracesSampleRate: 1.0
+})
 
 app.use(cors())
 app.use(express.json())
 app.use(logger)
 
-/* const app = http.createServer((request, response) => {
-    response.writeHead(200, {'Content-Type': 'text/plain'});
-    response.end("Hola Mundo!!");
-}); */
-
-let notes = [
-  {
-    id: 1,
-    content: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. ',
-    date: '2020-02-04T17:56:00',
-    important: true
-  },
-  {
-    id: 2,
-    content: 'LUt tincidunt placerat orci ut sodales.',
-    date: '2021-02-04T17:56:00',
-    important: false
-  },
-  {
-    id: 3,
-    content: 'Etiam aliquet aliquam elit, id maximus nibh euismod in.',
-    date: '2012-02-04T17:56:00',
-    important: false
-  }
-]
+// RequestHandler creates a separate execution context using domains, so that every
+// transaction/span/breadcrumb is attached to its own Hub instance
+app.use(Sentry.Handlers.requestHandler())
+// TracingHandler creates a trace for every incoming request
+app.use(Sentry.Handlers.tracingHandler())
 
 app.get('/', (req, res) => {
   res.send('<h1>Hola Mundo</h1>')
 })
 
 app.get('/api/notes', (req, resp) => {
-  resp.json(notes)
+  Note.find({})
+    .then(notes => resp.json(notes))
 })
 
-app.get('/api/notes/:id', (req, resp) => {
+app.get('/api/notes/:id', (req, resp, next) => {
   const { id } = req.params
-  const note = notes.find(note => note.id === id)
+  Note.findById(id)
+    .then(note => {
+      if (!note) {
+        return resp.status(404).json({})
+      }
 
-  if (!note) {
-    return resp.status(404).json({})
-  }
-
-  resp.json(note)
+      resp.json(note)
+    })
+    .catch(error => next(error))
 })
 
-app.delete('/api/notes/:id', (req, resp) => {
+app.delete('/api/notes/:id', (req, resp, next) => {
   const { id } = req.params
-  notes = notes.filter(note => note.id !== id)
-  resp.status(204).end()
+  Note.findByIdAndDelete(id)
+    .then(() => {
+      resp.status(204).end()
+    })
+    .catch(error => next(error))
 })
 
 app.post('/api/notes', (req, resp) => {
@@ -65,18 +73,32 @@ app.post('/api/notes', (req, resp) => {
     resp.status(400).send('Content required')
   }
 
-  const ids = notes.map(note => note.id)
-
-  const newNote = {
-    id: Math.max(...ids) + 1,
+  const newNote = new Note({
     content: body.content,
-    important: typeof body.important !== 'undefined' ? body.important : false,
-    date: new Date().toISOString()
+    important: body.important || false,
+    date: new Date()
+  })
+
+  newNote.save()
+    .then(response => resp.status(201).send(response))
+})
+
+app.put('/api/notes/:id', (req, resp, next) => {
+  const { id } = req.params
+  const body = req.body
+
+  if (!body || !body.content) {
+    resp.status(400).send('Content required')
   }
 
-  notes = [...notes, newNote]
+  const noteUpdated = {
+    content: body.content,
+    important: body.important
+  }
 
-  resp.status(201).send(newNote)
+  Note.findByIdAndUpdate(id, noteUpdated, { new: true })
+    .then(result => resp.json(result))
+    .catch(err => next(err))
 })
 
 app.use((req, resp) => {
@@ -84,6 +106,11 @@ app.use((req, resp) => {
     error: 'Not Found'
   })
 })
+
+// The error handler must be before any other error middleware and after all controllers
+app.use(Sentry.Handlers.errorHandler())
+
+app.use(handleErrors)
 
 const PORT = process.env.PORT || 3001
 

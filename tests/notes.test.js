@@ -1,9 +1,6 @@
 const mongoose = require('mongoose')
-const supertest = require('supertest')
-const { app, server } = require('../index')
+const { server, api } = require('./utils')
 const Note = require('../models/Notes')
-
-const api = supertest(app)
 
 const initialNotes = [
   {

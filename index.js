@@ -6,7 +6,9 @@ const Sentry = require('@sentry/node')
 const Tracing = require('@sentry/tracing')
 const logger = require('./middlewares/loggerMiddleware')
 const handleErrors = require('./middlewares/handleErrors')
-const Note = require('./models/Notes')
+
+const userRouter = require('./controllers/users')
+const noteRouter = require('./controllers/notes')
 
 const app = express()
 
@@ -39,73 +41,8 @@ app.get('/', (req, res) => {
   res.send('<h1>Hola Mundo</h1>')
 })
 
-/* app.get('/api/notes', (req, resp) => {
-  Note.find({})
-    .then(notes => resp.json(notes))
-}) */
-
-app.get('/api/notes', async (req, resp) => {
-  const notes = await Note.find({})
-  resp.json(notes)
-})
-
-app.get('/api/notes/:id', (req, resp, next) => {
-  const { id } = req.params
-  Note.findById(id)
-    .then(note => {
-      if (!note) {
-        return resp.status(404).json({})
-      }
-
-      resp.json(note)
-    })
-    .catch(error => next(error))
-})
-
-app.delete('/api/notes/:id', (req, resp, next) => {
-  const { id } = req.params
-  Note.findByIdAndDelete(id)
-    .then(() => {
-      resp.status(204).end()
-    })
-    .catch(error => next(error))
-})
-
-app.post('/api/notes', (req, resp, next) => {
-  const body = req.body
-
-  if (!body || !body.content) {
-    resp.status(400).send('Content required')
-  }
-
-  const newNote = new Note({
-    content: body.content,
-    important: body.important || false,
-    date: new Date()
-  })
-
-  newNote.save()
-    .then(response => resp.status(201).send(response))
-    .catch(next)
-})
-
-app.put('/api/notes/:id', (req, resp, next) => {
-  const { id } = req.params
-  const body = req.body
-
-  if (!body || !body.content) {
-    resp.status(400).send('Content required')
-  }
-
-  const noteUpdated = {
-    content: body.content,
-    important: body.important
-  }
-
-  Note.findByIdAndUpdate(id, noteUpdated, { new: true })
-    .then(result => resp.json(result))
-    .catch(err => next(err))
-})
+app.use('/api/notes', noteRouter)
+app.use('/api/users', userRouter)
 
 app.use((req, resp) => {
   resp.status(404).send({

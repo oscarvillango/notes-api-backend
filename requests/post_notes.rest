@@ -2,6 +2,7 @@ POST http://localhost:3001/api/notes
 Content-Type: application/json
 
 {
-    "content": "Lorem Ipsum",
-    "important": false
+    "content": "Que interesante Bootcamp",
+    "important": false,
+    "user": "60864d2a3d7388c0bd7324b8"
 }

@@ -39,9 +39,14 @@ app.get('/', (req, res) => {
   res.send('<h1>Hola Mundo</h1>')
 })
 
-app.get('/api/notes', (req, resp) => {
+/* app.get('/api/notes', (req, resp) => {
   Note.find({})
     .then(notes => resp.json(notes))
+}) */
+
+app.get('/api/notes', async (req, resp) => {
+  const notes = await Note.find({})
+  resp.json(notes)
 })
 
 app.get('/api/notes/:id', (req, resp, next) => {
@@ -66,7 +71,7 @@ app.delete('/api/notes/:id', (req, resp, next) => {
     .catch(error => next(error))
 })
 
-app.post('/api/notes', (req, resp) => {
+app.post('/api/notes', (req, resp, next) => {
   const body = req.body
 
   if (!body || !body.content) {
@@ -81,6 +86,7 @@ app.post('/api/notes', (req, resp) => {
 
   newNote.save()
     .then(response => resp.status(201).send(response))
+    .catch(next)
 })
 
 app.put('/api/notes/:id', (req, resp, next) => {
@@ -114,6 +120,8 @@ app.use(handleErrors)
 
 const PORT = process.env.PORT || 3001
 
-app.listen(PORT, null, () => {
+const server = app.listen(PORT, null, () => {
   console.log(`Running on port ${PORT}`)
 })
+
+module.exports = { app, server }
